@@ -10,13 +10,15 @@ export function extractUserIdFromToken(req) {
   
   if (auth && auth.startsWith('Bearer ')) {
     const token = auth.substring(7);
-    if (!token || token === 'undefined' || token === 'null') return null;
+    if (!token || token === 'undefined' || token === 'null' || token === '') {
+      return 'guest_user';
+    }
     
     try {
       // Note: In a production environment with google-auth-library, 
       // we would use verifyIdToken() here to check the signature.
       const decoded = jwtDecode(token);
-      return decoded.sub || 'guest_user'; // Return the Google 'sub' claim or fallback to guest_user
+      return decoded.sub || 'guest_user';
     } catch (error) {
       console.error('JWT Decoding Error in Backend:', error);
       return 'guest_user';
