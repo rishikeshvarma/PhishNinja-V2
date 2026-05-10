@@ -1,5 +1,5 @@
 import { query } from '../../_utils/db.js';
-import { syncUserIdentity } from '../../_utils/auth.js';
+import { extractUserIdFromToken } from '../../_utils/auth.js';
 
 export default async function handler(req, res) {
   // --- API Telemetry ---
@@ -13,14 +13,14 @@ export default async function handler(req, res) {
 
   let userId;
   try {
-    userId = await syncUserIdentity(req);
+    userId = extractUserIdFromToken(req);
     if (!userId) {
       console.error('Validation Error: No userId found in Token');
       return res.status(401).json({ error: 'Unauthorized: userId is required' });
     }
   } catch (err) {
-    console.error('Validation Error: Identity sync failed:', err.message);
-    return res.status(401).json({ error: 'Unauthorized: Invalid token or identity sync failed' });
+    console.error('Validation Error: Token extraction failed:', err.message);
+    return res.status(401).json({ error: 'Unauthorized: Invalid token format' });
   }
 
   // --- GET Handler ---
@@ -35,18 +35,29 @@ export default async function handler(req, res) {
       `, [userId]);
 
       if (result.rows.length === 0) {
-        console.log(`No settings found for ${userId}, returning default set...`);
-        return res.status(200).json({
-          user_id: userId,
-          bin: [],
-          allowlist: [],
-          settings: {
-            aggressiveness_level: 'High Alert (Vigilant)',
-            auto_sandbox: true,
-            threat_intel_feed: true,
-            daily_api_quota: 2000
-          }
-        });
+        console.log(`No settings found for ${userId}, initializing defaults...`);
+        const defaultSettings = {
+          aggressiveness_level: 'High Alert (Vigilant)',
+          auto_sandbox: true,
+          threat_intel_feed: true,
+          daily_api_quota: 2000
+        };
+        const insertQuery = `
+          INSERT INTO user_settings (user_id, settings, allowlist, bin)
+          VALUES ($1, $2, $3, $4)
+          RETURNING *;
+        `;
+        await query(insertQuery, [userId, JSON.stringify(defaultSettings), [], []]);
+        
+        // Fetch again with JOIN to get profile_pic
+        const joinedResult = await query(`
+          SELECT us.*, u.profile_pic 
+          FROM user_settings us
+          LEFT JOIN users u ON us.user_id = u.id
+          WHERE us.user_id = $1
+        `, [userId]);
+        
+        return res.status(200).json(joinedResult.rows[0]);
       }
 
       return res.status(200).json(result.rows[0]);

@@ -1,21 +1,29 @@
-import { syncUserIdentity } from '../_utils/auth.js';
 import { query } from '../_utils/db.js';
+import { extractUserIdFromToken } from '../_utils/auth.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const id = extractUserIdFromToken(req);
+  const { name, email, profile_pic } = req.body;
+
+  if (!id) {
+    return res.status(401).json({ error: 'Unauthorized: User ID (sub) is required' });
+  }
+
   try {
-    // syncUserIdentity now handles the extraction, UPSERT of user, and UPSERT of settings.
-    const userId = await syncUserIdentity(req);
+    // Upsert query as per directive
+    const upsertQuery = `
+      INSERT INTO users (id, name, email, profile_pic) 
+      VALUES ($1, $2, $3, $4) 
+      ON CONFLICT (id) DO UPDATE 
+      SET name = EXCLUDED.name, profile_pic = EXCLUDED.profile_pic
+      RETURNING *;
+    `;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized: Failed to identify user' });
-    }
-
-    // Fetch the final user record to return in the response
-    const result = await query('SELECT * FROM users WHERE id = $1', [userId]);
+    const result = await query(upsertQuery, [id, name, email, profile_pic]);
 
     return res.status(200).json({
       success: true,
@@ -23,9 +31,9 @@ export default async function handler(req, res) {
       user: result.rows[0]
     });
   } catch (error) {
-    console.error('[API Sync] Execution Error:', error);
+    console.error('Database Sync Error:', error);
     return res.status(500).json({
-      error: 'Failed to sync user',
+      error: 'Failed to sync user with database',
       message: error.message
     });
   }
