@@ -10,6 +10,12 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const [extensionConnected, setExtensionConnected] = useState(false);
+  const [lastActivity, setLastActivity] = useState(0);
+
+  const signalActivity = () => {
+    setLastActivity(Date.now());
+    setExtensionConnected(true);
+  };
 
   useEffect(() => {
     // Check if user is stored in local storage
@@ -29,13 +35,19 @@ export const AuthProvider = ({ children }) => {
     // Extension connection check
     const verifyConnection = async () => {
       const isConnected = await checkExtensionConnection();
-      setExtensionConnected(isConnected);
+      
+      // If browser handshake fails, check if we've had recent activity (within last 5 mins)
+      if (!isConnected && Date.now() - lastActivity < 5 * 60 * 1000) {
+        setExtensionConnected(true);
+      } else {
+        setExtensionConnected(isConnected);
+      }
     };
     
     verifyConnection();
     const interval = setInterval(verifyConnection, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [lastActivity]);
 
   const login = async (credential) => {
     try {
@@ -96,7 +108,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, updateUser, extensionConnected }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateUser, extensionConnected, setExtensionConnected, signalActivity }}>
       {children}
     </AuthContext.Provider>
   );

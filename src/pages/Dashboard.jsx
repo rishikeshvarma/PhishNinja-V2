@@ -4,7 +4,7 @@ import GlassCard from '../components/GlassCard';
 import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
-  const { user, extensionConnected } = useAuth();
+  const { user, extensionConnected, signalActivity } = useAuth();
   const [stats, setStats] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,12 @@ const Dashboard = () => {
           const result = await logsRes.json();
           const logsData = result.data || [];
           setRecentLogs(logsData.slice(0, 5));
+          
+          // Force connected state if we have recent logs
+          if (logsData.length > 0 && !extensionConnected) {
+            console.log("Activity detected in logs, signaling connection...");
+            signalActivity();
+          }
         } catch (e) { /* logs endpoint may not exist yet */ }
       } catch (err) {
         console.error('Dashboard fetch error:', err);
