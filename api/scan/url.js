@@ -23,10 +23,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Increment global usage counter
-  if (global.dailyUsageCount !== undefined) {
-    global.dailyUsageCount++;
-  }
+
 
   const { url } = req.body;
   const userId = extractUserIdFromToken(req);
@@ -53,9 +50,8 @@ export default async function handler(req, res) {
     const hostname = urlObj.hostname;
     if (trusted.some(t => hostname === t || hostname.endsWith('.' + t))) {
       const whitelistReason = 'Domain is verified as a trusted platform via absolute whitelist.';
-      if (userId) {
-        await logDetection(userId, 'URL', 'safe', 'Kill-Switch', whitelistReason, url);
-      }
+      await logDetection(userId, 'URL', 'safe', 'Kill-Switch', whitelistReason, url);
+
       logBeautifulScan({
         url,
         score: 0,
@@ -93,9 +89,8 @@ export default async function handler(req, res) {
         const sbResponse = await axios.post(sbUrl, sbBody);
         if (sbResponse.data.matches && sbResponse.data.matches.length > 0) {
           const gsbReason = "Google Safe Browsing API actively flagged this URL as a known security threat.";
-          if (userId) {
-            await logDetection(userId, 'URL', 'danger', 'Google Safe Browsing', gsbReason, url);
-          }
+          await logDetection(userId, 'URL', 'danger', 'Google Safe Browsing', gsbReason, url);
+
           logBeautifulScan({
             url,
             score: 1.0,
@@ -187,9 +182,8 @@ Respond ONLY with a valid JSON object:
     }
 
     // 5. Final Database Logging
-    if (userId) {
       await logDetection(userId, 'URL', finalVerdict, finalSource, finalReason, url);
-    }
+
 
     logBeautifulScan({
       url,

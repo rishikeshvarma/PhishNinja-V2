@@ -17,10 +17,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Increment global usage counter
-  if (global.dailyUsageCount !== undefined) {
-    global.dailyUsageCount++;
-  }
+
 
   const incomingText = req.body.text || req.body.content || '';
 
@@ -115,9 +112,8 @@ export default async function handler(req, res) {
 
     if (score >= 0.85) {
       const reason = 'Matches a known threat in the database with high confidence.';
-      if (userId) {
-        await logDetection(userId, 'TEXT', 'danger', 'RAG (Vector Store)', reason, analysisContent);
-      }
+      await logDetection(userId, 'TEXT', 'danger', 'RAG (Vector Store)', reason, analysisContent);
+
       logBeautifulScan({
         source: req.body.source,
         content: analysisContent,
@@ -146,9 +142,8 @@ export default async function handler(req, res) {
 
       if (!hasSuspiciousKeyword) {
         const reason = 'Score below 0.72 and no suspicious keywords found. Marking as SAFE.';
-        if (userId) {
-          await logDetection(userId, 'TEXT', 'safe', 'RAG (Vector Store)', reason, analysisContent);
-        }
+        await logDetection(userId, 'TEXT', 'safe', 'RAG (Vector Store)', reason, analysisContent);
+
         logBeautifulScan({
           source: req.body.source,
           content: analysisContent,
@@ -217,9 +212,8 @@ ${contextText}`;
     }
 
     // 4. Log to Detections Page (Database)
-    if (userId) {
       await logDetection(userId, 'TEXT', data.riskLevel.toLowerCase(), 'RAG Analysis', data.reason, analysisContent);
-    }
+
     
     logBeautifulScan({
       source: req.body.source,

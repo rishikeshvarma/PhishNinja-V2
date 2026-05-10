@@ -85,14 +85,15 @@ export async function scanText(text, userId, aggressiveness = 'Standard') {
 
 
 export async function logDetection(userId, type, status, source, ai_reason, content = null) {
-  if (!userId) return;
   try {
+    // If userId is missing, it will be inserted as NULL (allowed by the schema)
     await query(
       'INSERT INTO detections_page (user_id, type, status, source, ai_reason, content) VALUES ($1, $2, $3, $4, $5, $6)',
-      [userId, type, status, source, ai_reason, content]
+      [userId || null, type, status, source, ai_reason, content]
     );
   } catch (err) {
     console.error('Logging Error:', err);
   }
 }
+
 

@@ -24,7 +24,6 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:5173',
       'http://127.0.0.1:5173',
-      'https://phishninja-v2.vercel.app',
       'chrome-extension://afdnklgpaibjlgekddhnpnefkpaogcfc',
       'chrome-extension://lnibnpolceadeabogmhpmmfpnfmcfhgg'
     ];
@@ -106,11 +105,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Local API Server is breathing' });
 });
 
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  app.listen(port, () => {
-    console.log(`\n🚀 Local API Server running at http://localhost:${port}`);
-    console.log(`🔗 Proxying /api requests from Vite to this server\n`);
-  });
-}
-
-export default app;
+app.listen(port, () => {
+  console.log(`\n🚀 Local API Server running at http://localhost:${port}`);
+  console.log(`🔗 Proxying /api requests from Vite to this server\n`);
+});

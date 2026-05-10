@@ -14,10 +14,7 @@ export default async function handler(req, res) {
 
   const { text, source } = req.body;
 
-  // Increment global usage counter
-  if (global.dailyUsageCount !== undefined) {
-    global.dailyUsageCount++;
-  }
+
 
   if (!text) {
     return res.status(400).json({ error: 'Text is required' });
