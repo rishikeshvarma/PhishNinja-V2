@@ -1,5 +1,5 @@
 import { query } from '../../_utils/db.js';
-import { extractUserIdFromToken } from '../../_utils/auth.js';
+import { syncUserIdentity } from '../../_utils/auth.js';
 
 export default async function handler(req, res) {
   // --- API Telemetry ---
@@ -13,14 +13,14 @@ export default async function handler(req, res) {
 
   let userId;
   try {
-    userId = extractUserIdFromToken(req);
+    userId = await syncUserIdentity(req);
     if (!userId) {
       console.error('Validation Error: No userId found in Token');
       return res.status(401).json({ error: 'Unauthorized: userId is required' });
     }
   } catch (err) {
-    console.error('Validation Error: Token extraction failed:', err.message);
-    return res.status(401).json({ error: 'Unauthorized: Invalid token format' });
+    console.error('Validation Error: Identity sync failed:', err.message);
+    return res.status(401).json({ error: 'Unauthorized: Invalid token or identity sync failed' });
   }
 
   // --- GET Handler ---
