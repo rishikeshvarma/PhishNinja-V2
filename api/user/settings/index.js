@@ -35,29 +35,18 @@ export default async function handler(req, res) {
       `, [userId]);
 
       if (result.rows.length === 0) {
-        console.log(`No settings found for ${userId}, initializing defaults...`);
-        const defaultSettings = {
-          aggressiveness_level: 'High Alert (Vigilant)',
-          auto_sandbox: true,
-          threat_intel_feed: true,
-          daily_api_quota: 2000
-        };
-        const insertQuery = `
-          INSERT INTO user_settings (user_id, settings, allowlist, bin)
-          VALUES ($1, $2, $3, $4)
-          RETURNING *;
-        `;
-        await query(insertQuery, [userId, JSON.stringify(defaultSettings), [], []]);
-        
-        // Fetch again with JOIN to get profile_pic
-        const joinedResult = await query(`
-          SELECT us.*, u.profile_pic 
-          FROM user_settings us
-          LEFT JOIN users u ON us.user_id = u.id
-          WHERE us.user_id = $1
-        `, [userId]);
-        
-        return res.status(200).json(joinedResult.rows[0]);
+        console.log(`No settings found for ${userId}, returning default set...`);
+        return res.status(200).json({
+          user_id: userId,
+          bin: [],
+          allowlist: [],
+          settings: {
+            aggressiveness_level: 'High Alert (Vigilant)',
+            auto_sandbox: true,
+            threat_intel_feed: true,
+            daily_api_quota: 2000
+          }
+        });
       }
 
       return res.status(200).json(result.rows[0]);

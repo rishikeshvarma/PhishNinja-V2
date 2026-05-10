@@ -16,13 +16,13 @@ export function extractUserIdFromToken(req) {
       // Note: In a production environment with google-auth-library, 
       // we would use verifyIdToken() here to check the signature.
       const decoded = jwtDecode(token);
-      return decoded.sub || 'guest_user'; // Return the Google 'sub' claim or fallback to guest_user
+      return decoded.sub || null; // Return the Google 'sub' claim or null
     } catch (error) {
       console.error('JWT Decoding Error in Backend:', error);
-      return 'guest_user';
+      return null;
     }
   }
 
-  // Fallback to userId in body if provided (legacy/direct), else guest_user
-  return req.body?.userId || 'guest_user';
+  // Fallback to userId in body if provided (legacy/direct), else null
+  return req.body?.userId || null;
 }
