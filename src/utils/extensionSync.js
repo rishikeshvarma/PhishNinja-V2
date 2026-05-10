@@ -5,13 +5,13 @@
  */
 
 // Pull Extension IDs from environment variables (comma-separated string)
-const EXTENSION_IDS = (
+const EXTENSION_IDS = Array.from(new Set((
   import.meta.env.VITE_EXTENSION_IDS || 
   import.meta.env.VITE_EXTENSION_ID || 
   ''
 ).split(',')
   .map(id => id.trim())
-  .filter(id => id && id.length > 5); // Filter out garbage
+  .filter(id => id && id.length > 10))); // Filter out garbage and short strings
 
 // Local cache for the identified active extension
 let activeExtensionId = localStorage.getItem('phishninja_active_extension_id') || null;
@@ -99,21 +99,24 @@ export const syncWithExtension = (user) => {
   // Robust payload mapping
   const authToken = user?.jwt || user?.token || null;
   const userProfile = user?.user || user || null;
-  const apiBaseUrl = import.meta.env.VITE_API_URL || (window.location.origin + '/api');
 
   if (!authToken) {
-    console.warn('[ExtensionSync] No auth token found for sync.');
+    console.warn('[ExtensionSync] No auth token found for sync. Sending logout signal.');
   }
 
+  // Explicit Identity Payload as requested
   const payload = {
     type: 'SYNC_AUTH',
-    user: userProfile,
     token: authToken,
+    userProfile: userProfile,
     dashboardUrl: window.location.origin,
-    apiBaseUrl: apiBaseUrl
+    apiBaseUrl: import.meta.env.VITE_API_URL || (window.location.origin + '/api')
   };
 
-  const broadcastSync = (id) => {
+  console.log(`[ExtensionSync] Force-pushing auth sync to ${EXTENSION_IDS.length} extensions...`);
+
+  // PROACTIVE SYNC: Loop through all IDs and Force-Push
+  EXTENSION_IDS.forEach(id => {
     try {
       window.chrome.runtime.sendMessage(id, payload, (response) => {
         if (!window.chrome.runtime.lastError && response?.success) {
@@ -121,19 +124,13 @@ export const syncWithExtension = (user) => {
             activeExtensionId = id;
             localStorage.setItem('phishninja_active_extension_id', id);
           }
-          console.log(`[ExtensionSync] Sync successful with ${id}`);
+          console.log(`[ExtensionSync] Sync successful with extension: ${id}`);
         }
       });
-    } catch (e) {}
-  };
-
-  // If we have an active ID, sync only with it
-  if (activeExtensionId) {
-    broadcastSync(activeExtensionId);
-  } else {
-    // Fallback to broadcast to all possible IDs
-    EXTENSION_IDS.forEach(id => broadcastSync(id));
-  }
+    } catch (e) {
+      // Silent fail for non-existent IDs
+    }
+  });
 };
 
 

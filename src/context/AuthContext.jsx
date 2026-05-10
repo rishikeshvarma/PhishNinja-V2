@@ -34,23 +34,31 @@ export const AuthProvider = ({ children }) => {
 
     // Extension connection check
     const verifyConnection = async () => {
+      if (typeof window === 'undefined' || !window.chrome) {
+        setExtensionConnected(false);
+        return;
+      }
+
       try {
         const isConnected = await checkExtensionConnection();
         
-        // If handshake succeeds, always force connected = true
         if (isConnected) {
           setExtensionConnected(true);
-          return;
-        }
-
-        // If browser handshake fails, check if we've had recent activity (within last 5 mins)
-        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-        if (lastActivity > fiveMinutesAgo) {
-          setExtensionConnected(true);
+          // If we just re-connected, push current auth state to be safe
+          if (user) {
+            syncWithExtension(user);
+          }
         } else {
-          setExtensionConnected(false);
+          // If handshake fails, check if we've had recent activity (within last 5 mins)
+          const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+          if (lastActivity > fiveMinutesAgo) {
+            setExtensionConnected(true);
+          } else {
+            setExtensionConnected(false);
+          }
         }
       } catch (err) {
+        console.error('[AuthContext] Connection check failed:', err);
         setExtensionConnected(false);
       }
     };
