@@ -52,7 +52,12 @@ const Dashboard = () => {
             <h3 className="font-h3 text-base text-amber-400">Security Recommendation</h3>
             <p className="text-sm text-on-surface-variant">Install the Extension to enable real-time protection across all browsing sessions.</p>
           </div>
-          <button className="px-6 py-2 bg-white/5 border border-white/10 text-on-surface rounded-lg text-sm font-bold hover:bg-white/10 transition-colors">Install Now</button>
+          <button 
+            onClick={() => window.location.href = 'https://chromewebstore.google.com/detail/ikcooobnaejnjglfncihcjjpalcgjhmb?utm_source=item-share-cb'}
+            className="px-6 py-2 bg-white/5 border border-white/10 text-on-surface rounded-lg text-sm font-bold hover:bg-white/10 transition-colors"
+          >
+            Install Now
+          </button>
         </div>
       )}
 
