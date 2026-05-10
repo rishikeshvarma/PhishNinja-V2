@@ -25,6 +25,21 @@ export default async function handler(req, res) {
 
     const result = await query(upsertQuery, [id, name, email, profile_pic]);
 
+    // Ensure user_settings is initialized for new users
+    const defaultSettings = {
+      aggressiveness_level: 'High Alert (Vigilant)',
+      auto_sandbox: true,
+      threat_intel_feed: true,
+      daily_api_quota: 2000
+    };
+
+    const settingsUpsertQuery = `
+      INSERT INTO user_settings (user_id, settings, allowlist, bin)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (user_id) DO NOTHING;
+    `;
+    await query(settingsUpsertQuery, [id, JSON.stringify(defaultSettings), [], []]);
+
     return res.status(200).json({
       success: true,
       message: 'User synced successfully',
