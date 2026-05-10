@@ -1,5 +1,6 @@
 import { query } from '../../_utils/db.js';
 import { extractUserIdFromToken } from '../../_utils/auth.js';
+import { ensureUserOnboarded } from '../../_utils/user.js';
 import { jwtDecode } from 'jwt-decode';
 
 export default async function handler(req, res) {
@@ -24,6 +25,14 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized: Invalid token format' });
   }
 
+  // --- Ensure User Onboarded ---
+  try {
+    const token = authHeader.substring(7);
+    await ensureUserOnboarded(userId, token);
+  } catch (onboardErr) {
+    console.warn('Auto-onboarding warning:', onboardErr.message);
+  }
+
   // --- GET Handler ---
   if (req.method === 'GET') {
     try {
@@ -38,28 +47,6 @@ export default async function handler(req, res) {
       if (result.rows.length === 0) {
         console.log(`No settings found for ${userId}, initializing defaults...`);
         
-        // --- AUTO-ONBOARDING: Ensure user exists in 'users' table ---
-        try {
-          const authHeader = req.headers?.authorization;
-          if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.substring(7);
-            const decoded = jwtDecode(token);
-            
-            await query(`
-              INSERT INTO users (id, email, name, profile_pic)
-              VALUES ($1, $2, $3, $4)
-              ON CONFLICT (id) DO UPDATE SET 
-                email = EXCLUDED.email,
-                name = EXCLUDED.name,
-                profile_pic = EXCLUDED.profile_pic
-            `, [userId, decoded.email || '', decoded.name || 'PhishNinja User', decoded.picture || '']);
-            console.log(`Auto-onboarded user ${userId} to 'users' table.`);
-          }
-        } catch (onboardErr) {
-          console.warn('Auto-onboarding warning (users table):', onboardErr.message);
-          // Continue even if users insert fails (might already exist or legacy)
-        }
-
         const defaultSettings = {
           aggressiveness_level: 'High Alert (Vigilant)',
           auto_sandbox: true,

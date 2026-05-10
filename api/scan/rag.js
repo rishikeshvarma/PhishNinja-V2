@@ -2,6 +2,7 @@ import { getEmbedding, safeParseLLMJSON } from '../_utils/ai.js';
 import { query } from '../_utils/db.js';
 import { logDetection } from '../_utils/scanner.js';
 import { extractUserIdFromToken } from '../_utils/auth.js';
+import { ensureUserOnboarded } from '../_utils/user.js';
 import Groq from 'groq-sdk';
 
 let groq = null;
@@ -17,8 +18,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-
-
   const incomingText = req.body.text || req.body.content || '';
 
   // Strict Failsafe: Drop empty or extremely short text (spam prevention)
@@ -30,6 +29,17 @@ export default async function handler(req, res) {
   const { source, senderAddress, url } = req.body;
   const text = incomingText;
   const userId = extractUserIdFromToken(req);
+  const authHeader = req.headers?.authorization;
+
+  // Directive 1: Ensure user is onboarded if a valid token exists
+  if (userId && userId !== 'guest_user' && authHeader?.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.substring(7);
+      await ensureUserOnboarded(userId, token);
+    } catch (err) {
+      console.warn('[PhishNinja Text] Auto-onboarding failed:', err.message);
+    }
+  }
 
   if (!text) {
     return res.status(400).json({ error: 'Text content is required' });

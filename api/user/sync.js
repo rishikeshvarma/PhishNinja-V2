@@ -1,5 +1,5 @@
-import { query } from '../_utils/db.js';
 import { extractUserIdFromToken } from '../_utils/auth.js';
+import { ensureUserOnboarded } from '../_utils/user.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,28 +7,19 @@ export default async function handler(req, res) {
   }
 
   const id = extractUserIdFromToken(req);
-  const { name, email, profile_pic } = req.body;
+  const authHeader = req.headers.authorization;
 
-  if (!id) {
-    return res.status(401).json({ error: 'Unauthorized: User ID (sub) is required' });
+  if (!id || id === 'guest_user') {
+    return res.status(401).json({ error: 'Unauthorized: Valid User Token required for sync' });
   }
 
   try {
-    // Upsert query as per directive
-    const upsertQuery = `
-      INSERT INTO users (id, name, email, profile_pic) 
-      VALUES ($1, $2, $3, $4) 
-      ON CONFLICT (id) DO UPDATE 
-      SET name = EXCLUDED.name, profile_pic = EXCLUDED.profile_pic
-      RETURNING *;
-    `;
-
-    const result = await query(upsertQuery, [id, name, email, profile_pic]);
+    const token = authHeader.substring(7);
+    await ensureUserOnboarded(id, token);
 
     return res.status(200).json({
       success: true,
-      message: 'User synced successfully',
-      user: result.rows[0]
+      message: 'User synced and onboarded successfully'
     });
   } catch (error) {
     console.error('Database Sync Error:', error);

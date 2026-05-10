@@ -2,6 +2,7 @@ import { getEmbedding, safeParseLLMJSON } from '../_utils/ai.js';
 import { query } from '../_utils/db.js';
 import { logDetection } from '../_utils/scanner.js';
 import { extractUserIdFromToken } from '../_utils/auth.js';
+import { ensureUserOnboarded } from '../_utils/user.js';
 import axios from 'axios';
 import Groq from 'groq-sdk';
 
@@ -23,10 +24,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-
-
   const { url } = req.body;
   const userId = extractUserIdFromToken(req);
+  const authHeader = req.headers?.authorization;
+
+  // Directive 1: Ensure user is onboarded if a valid token exists
+  if (userId && userId !== 'guest_user' && authHeader?.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.substring(7);
+      await ensureUserOnboarded(userId, token);
+    } catch (err) {
+      console.warn('[PhishNinja URL] Auto-onboarding failed:', err.message);
+    }
+  }
 
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
