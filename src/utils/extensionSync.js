@@ -9,7 +9,9 @@ const EXTENSION_IDS = (
   import.meta.env.VITE_EXTENSION_IDS || 
   import.meta.env.VITE_EXTENSION_ID || 
   ''
-).split(',').map(id => id.trim()).filter(id => id);
+).split(',')
+  .map(id => id.trim())
+  .filter(id => id && id.length > 5); // Filter out garbage
 
 // Local cache for the identified active extension
 let activeExtensionId = localStorage.getItem('phishninja_active_extension_id') || null;
@@ -66,7 +68,7 @@ export const checkExtensionConnection = () => {
                 foundId = id;
                 activeExtensionId = id;
                 localStorage.setItem('phishninja_active_extension_id', id);
-                console.log(`[ExtensionSync] Active extension found: ${id}`);
+                console.log(`[ExtensionSync] Active extension identified: ${id}`);
               }
               res(true);
             } else {
@@ -79,7 +81,7 @@ export const checkExtensionConnection = () => {
       });
     });
 
-    // Wait for all checks to complete (or could use Promise.any if we want to be faster)
+    // Wait for all checks to complete
     await Promise.all(checks);
     resolve(!!foundId);
   });
@@ -87,49 +89,53 @@ export const checkExtensionConnection = () => {
 
 /**
  * Syncs authentication state with the active extension or all configured extensions.
- * @param {Object} user - User object
- * @param {string} token - Auth token
+ * @param {Object} user - User object from AuthContext
  */
-export const syncWithExtension = (user, token) => {
+export const syncWithExtension = (user) => {
   if (typeof window === 'undefined' || !window.chrome || !window.chrome.runtime || !window.chrome.runtime.sendMessage) {
     return;
   }
 
-  const authToken = token || user?.token || null;
-  const userData = user || null;
-  const apiBaseUrl = window.location.origin + '/api';
+  // Robust payload mapping
+  const authToken = user?.jwt || user?.token || null;
+  const userProfile = user?.user || user || null;
+  const apiBaseUrl = import.meta.env.VITE_API_URL || (window.location.origin + '/api');
+
+  if (!authToken) {
+    console.warn('[ExtensionSync] No auth token found for sync.');
+  }
 
   const payload = {
     type: 'SYNC_AUTH',
-    user: userData,
+    user: userProfile,
     token: authToken,
     dashboardUrl: window.location.origin,
     apiBaseUrl: apiBaseUrl
   };
 
+  const broadcastSync = (id) => {
+    try {
+      window.chrome.runtime.sendMessage(id, payload, (response) => {
+        if (!window.chrome.runtime.lastError && response?.success) {
+          if (!activeExtensionId) {
+            activeExtensionId = id;
+            localStorage.setItem('phishninja_active_extension_id', id);
+          }
+          console.log(`[ExtensionSync] Sync successful with ${id}`);
+        }
+      });
+    } catch (e) {}
+  };
+
   // If we have an active ID, sync only with it
   if (activeExtensionId) {
-    try {
-      window.chrome.runtime.sendMessage(activeExtensionId, payload, () => {
-        if (window.chrome.runtime.lastError) {
-          activeExtensionId = null; // Reset if it fails
-        }
-      });
-      return;
-    } catch (e) {}
+    broadcastSync(activeExtensionId);
+  } else {
+    // Fallback to broadcast to all possible IDs
+    EXTENSION_IDS.forEach(id => broadcastSync(id));
   }
-
-  // Fallback to broadcast if no active ID
-  EXTENSION_IDS.forEach(id => {
-    try {
-      window.chrome.runtime.sendMessage(id, payload, () => {
-        if (!window.chrome.runtime.lastError) {
-          activeExtensionId = id; // Identify it during sync if possible
-        }
-      });
-    } catch (err) {}
-  });
 };
+
 
 /**
  * Syncs settings with the active extension or all configured extensions.

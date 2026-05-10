@@ -34,13 +34,24 @@ export const AuthProvider = ({ children }) => {
 
     // Extension connection check
     const verifyConnection = async () => {
-      const isConnected = await checkExtensionConnection();
-      
-      // If browser handshake fails, check if we've had recent activity (within last 5 mins)
-      if (!isConnected && Date.now() - lastActivity < 5 * 60 * 1000) {
-        setExtensionConnected(true);
-      } else {
-        setExtensionConnected(isConnected);
+      try {
+        const isConnected = await checkExtensionConnection();
+        
+        // If handshake succeeds, always force connected = true
+        if (isConnected) {
+          setExtensionConnected(true);
+          return;
+        }
+
+        // If browser handshake fails, check if we've had recent activity (within last 5 mins)
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+        if (lastActivity > fiveMinutesAgo) {
+          setExtensionConnected(true);
+        } else {
+          setExtensionConnected(false);
+        }
+      } catch (err) {
+        setExtensionConnected(false);
       }
     };
     
