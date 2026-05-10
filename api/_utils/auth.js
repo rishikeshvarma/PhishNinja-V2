@@ -18,7 +18,9 @@ export function extractUserIdFromToken(req) {
       // Note: In a production environment with google-auth-library, 
       // we would use verifyIdToken() here to check the signature.
       const decoded = jwtDecode(token);
-      return decoded.sub || 'guest_user';
+      const userId = decoded.sub || 'guest_user';
+      console.log("Authenticated User ID extracted:", userId);
+      return userId;
     } catch (error) {
       console.error('JWT Decoding Error in Backend:', error);
       return 'guest_user';
@@ -26,5 +28,10 @@ export function extractUserIdFromToken(req) {
   }
 
   // Fallback to userId in body if provided (legacy/direct), else guest_user
-  return req.body?.userId || 'guest_user';
+  const fallbackId = req.body?.userId || 'guest_user';
+  if (fallbackId !== 'guest_user') {
+    console.log("Authenticated User ID extracted (fallback):", fallbackId);
+  }
+  return fallbackId;
 }
+

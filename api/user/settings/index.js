@@ -1,5 +1,6 @@
 import { query } from '../../_utils/db.js';
 import { extractUserIdFromToken } from '../../_utils/auth.js';
+import { jwtDecode } from 'jwt-decode';
 
 export default async function handler(req, res) {
   // --- API Telemetry ---
@@ -36,6 +37,29 @@ export default async function handler(req, res) {
 
       if (result.rows.length === 0) {
         console.log(`No settings found for ${userId}, initializing defaults...`);
+        
+        // --- AUTO-ONBOARDING: Ensure user exists in 'users' table ---
+        try {
+          const authHeader = req.headers?.authorization;
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.substring(7);
+            const decoded = jwtDecode(token);
+            
+            await query(`
+              INSERT INTO users (id, email, name, profile_pic)
+              VALUES ($1, $2, $3, $4)
+              ON CONFLICT (id) DO UPDATE SET 
+                email = EXCLUDED.email,
+                name = EXCLUDED.name,
+                profile_pic = EXCLUDED.profile_pic
+            `, [userId, decoded.email || '', decoded.name || 'PhishNinja User', decoded.picture || '']);
+            console.log(`Auto-onboarded user ${userId} to 'users' table.`);
+          }
+        } catch (onboardErr) {
+          console.warn('Auto-onboarding warning (users table):', onboardErr.message);
+          // Continue even if users insert fails (might already exist or legacy)
+        }
+
         const defaultSettings = {
           aggressiveness_level: 'High Alert (Vigilant)',
           auto_sandbox: true,
@@ -45,6 +69,7 @@ export default async function handler(req, res) {
         const insertQuery = `
           INSERT INTO user_settings (user_id, settings, allowlist, bin)
           VALUES ($1, $2, $3, $4)
+          ON CONFLICT (user_id) DO NOTHING
           RETURNING *;
         `;
         await query(insertQuery, [userId, JSON.stringify(defaultSettings), [], []]);
@@ -57,6 +82,16 @@ export default async function handler(req, res) {
           WHERE us.user_id = $1
         `, [userId]);
         
+        if (joinedResult.rows.length === 0) {
+           // Fallback if somehow still empty
+           return res.status(200).json({ 
+             user_id: userId, 
+             settings: defaultSettings, 
+             allowlist: [], 
+             bin: [], 
+             initialized: true 
+           });
+        }
         return res.status(200).json(joinedResult.rows[0]);
       }
 
