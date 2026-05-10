@@ -184,3 +184,75 @@ OUTPUT FORMAT (JSON ONLY):
   }
 }
 
+/**
+ * Multi-Agent Consensus Logic: Query multiple models and reconcile their verdicts.
+ * Models used: llama-3.1-8b-instant (Fast) + llama3-70b-8192 (Powerful)
+ */
+export async function getMultiAgentConsensus(type, content, senderAddress = null, context = null) {
+  const groqClient = getGroqClient();
+  
+  // Prepare prompts
+  let systemPrompt = "";
+  let userPrompt = "";
+
+  if (type === 'URL') {
+    systemPrompt = `You are an elite URL Forensic Expert. Analyze the URL for phishing, typosquatting, and deceptive patterns.
+    OUTPUT FORMAT (JSON ONLY): {"status": "safe" | "risk" | "danger", "ai_reason": "..."}`;
+    userPrompt = `Analyze this URL: ${content}`;
+  } else {
+    const contextBlock = context ? `\n\nCONTEXT FROM PREVIOUS THREATS:\n"""\n${context}\n"""` : '';
+    systemPrompt = `You are an elite PhishNinja Security Engine. Analyze text content for phishing and social engineering.
+    ${contextBlock}
+    OUTPUT FORMAT (JSON ONLY): {"status": "safe" | "risk" | "danger", "ai_reason": "..."}`;
+    userPrompt = `Analyze this content: ${content}`;
+  }
+
+  // Define models
+  const models = ["llama-3.1-8b-instant", "llama3-70b-8192"];
+  
+  try {
+    // Run models in parallel
+    const predictions = await Promise.all(models.map(async (model) => {
+      try {
+        const completion = await groqClient.chat.completions.create({
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          model: model,
+          response_format: { type: "json_object" },
+        });
+        const parsed = safeParseLLMJSON(completion.choices[0]?.message?.content);
+        return { model, ...parsed };
+      } catch (err) {
+        console.error(`Multi-Agent Error (${model}):`, err.message);
+        return { model, status: 'safe', ai_reason: 'Model failed.' };
+      }
+    }));
+
+    // Reconcile
+    const v8b = predictions.find(p => p.model === "llama-3.1-8b-instant") || { status: 'safe', ai_reason: '8B failed.' };
+    const v70b = predictions.find(p => p.model === "llama3-70b-8192") || { status: 'safe', ai_reason: '70B failed.' };
+
+    console.log(`[Consensus] 8B: ${v8b.status}, 70B: ${v70b.status}`);
+
+    if (v8b.status === v70b.status) {
+      return v8b; 
+    }
+
+    // Escalation logic
+    if (v70b.status === 'danger' || v8b.status === 'danger') {
+      if (v70b.status === 'risk' || v8b.status === 'risk') {
+          return { status: 'danger', ai_reason: `[Consensus Escalation] ${v70b.ai_reason} (Secondary verification: ${v8b.status})` };
+      }
+      if (v70b.status === 'danger') return v70b;
+      return { status: 'risk', ai_reason: `[Disputed] 8B flagged DANGER but 70B remained skeptical. Treating as RISK.` };
+    }
+
+    if (v70b.status === 'risk' || v8b.status === 'risk') {
+      return v70b.status === 'risk' ? v70b : v8b;
+    }
+
+    return v70b; 
+  } catch (err) {
+    console.error('Consensus process failed:', err.message);
+    return { status: 'safe', ai_reason: 'Consensus engine failed.' };
+  }
+}
