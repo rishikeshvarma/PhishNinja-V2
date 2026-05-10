@@ -33,6 +33,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Fetch Stats Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'DB_STATS_FETCH_FAILED',
+      message: error.message 
+    });
   }
 }

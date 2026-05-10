@@ -62,6 +62,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('DB Query Failed (Logs):', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'DB_LOGS_FETCH_FAILED',
+      message: error.message 
+    });
   }
 }

@@ -5,23 +5,22 @@ export default async function handler(req, res) {
   // --- API Telemetry ---
   console.log(`[API Settings] ${req.method} request received for user identification.`);
 
-  // Extract User ID from JWT or fallback
+  const authHeader = req.headers?.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('Validation Error: Missing or invalid Authorization header');
+    return res.status(401).json({ error: 'Unauthorized: Missing Auth Header' });
+  }
+
   let userId;
   try {
     userId = extractUserIdFromToken(req);
+    if (!userId) {
+      console.error('Validation Error: No userId found in Token');
+      return res.status(401).json({ error: 'Unauthorized: userId is required' });
+    }
   } catch (err) {
     console.error('Validation Error: Token extraction failed:', err.message);
-    return res.status(400).json({ error: 'Invalid token format' });
-  }
-
-  // Fallback to query/body if token not present (for debugging/legacy)
-  if (!userId) {
-    userId = req.method === 'GET' ? req.query.userId : req.body?.userId;
-  }
-
-  if (!userId) {
-    console.error('Validation Error: No userId found in Token, Query, or Body');
-    return res.status(401).json({ error: 'Unauthorized: userId is required' });
+    return res.status(401).json({ error: 'Unauthorized: Invalid token format' });
   }
 
   // --- GET Handler ---
@@ -64,7 +63,10 @@ export default async function handler(req, res) {
       return res.status(200).json(result.rows[0]);
     } catch (error) {
       console.error('Database Error (GET settings):', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ 
+        error: 'DB_SETTINGS_FETCH_FAILED',
+        message: error.message 
+      });
     }
   }
 
@@ -143,7 +145,10 @@ export default async function handler(req, res) {
       return res.status(200).json(result.rows[0]);
     } catch (error) {
       console.error('Database Error (POST settings):', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ 
+        error: 'DB_SETTINGS_UPDATE_FAILED',
+        message: error.message 
+      });
     }
   }
 
