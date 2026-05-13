@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node%20%7C%20Supabase%20%7C%20Groq-orange?style=for-the-badge)](https://github.com/rishikeshvarma/PhishNinja-V2)
 
-> **"Real-time, Agentic RAG-powered protection for modern messaging platforms."**
+> **"Real-time, Agentic RAG-powered protection for modern messaging platforms."** 
 
 PhishNinja v2.1 is a high-performance cybersecurity ecosystem designed to neutralize phishing threats in modern, dynamic messaging environments (WhatsApp, Instagram, LinkedIn). By moving away from legacy page-wide scanning and adopting **Atomic Message-Level Interception**, PhishNinja provides sub-second protection with industrial-grade accuracy.
 
